@@ -14,6 +14,7 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/spf13/afero"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-storedcounter"
@@ -45,6 +46,7 @@ type manager struct {
 	reconnectsLk         sync.RWMutex
 	reconnects           map[datatransfer.ChannelID]chan struct{}
 	cidLists             cidlists.CIDLists
+	afs                  *afero.Afero
 }
 
 type internalEvent struct {
@@ -91,7 +93,7 @@ func ChannelRemoveTimeout(timeout time.Duration) DataTransferOption {
 const defaultChannelRemoveTimeout = 1 * time.Hour
 
 // NewDataTransfer initializes a new instance of a data transfer manager
-func NewDataTransfer(ds datastore.Batching, cidListsDir string, dataTransferNetwork network.DataTransferNetwork, transport datatransfer.Transport, storedCounter *storedcounter.StoredCounter, options ...DataTransferOption) (datatransfer.Manager, error) {
+func NewDataTransfer(ds datastore.Batching, afs *afero.Afero, cidListsDir string, dataTransferNetwork network.DataTransferNetwork, transport datatransfer.Transport, storedCounter *storedcounter.StoredCounter, options ...DataTransferOption) (datatransfer.Manager, error) {
 	m := &manager{
 		dataTransferNetwork:  dataTransferNetwork,
 		validatedTypes:       registry.NewRegistry(),
@@ -105,8 +107,9 @@ func NewDataTransfer(ds datastore.Batching, cidListsDir string, dataTransferNetw
 		storedCounter:        storedCounter,
 		channelRemoveTimeout: defaultChannelRemoveTimeout,
 		reconnects:           make(map[datatransfer.ChannelID]chan struct{}),
+		afs:                  afs,
 	}
-	cidLists, err := cidlists.NewCIDLists(cidListsDir)
+	cidLists, err := cidlists.NewCIDLists(afs, cidListsDir)
 	if err != nil {
 		return nil, err
 	}
@@ -207,6 +210,7 @@ func (m *manager) OpenPushDataChannel(ctx context.Context, requestTo peer.ID, vo
 // OpenPullDataChannel opens a data transfer that will request data from the sending peer and
 // transfer parts of the piece that match the selector
 func (m *manager) OpenPullDataChannel(ctx context.Context, requestTo peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID, error) {
+	fmt.Printf("Jim go-data-transfer OpenPullDataChannel %v\n", requestTo)
 	req, err := m.newRequest(ctx, selector, true, voucher, baseCid, requestTo)
 	if err != nil {
 		return datatransfer.ChannelID{}, err

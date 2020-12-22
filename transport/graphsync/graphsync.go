@@ -3,6 +3,7 @@ package graphsync
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/ipfs/go-cid"
@@ -95,6 +96,7 @@ func (t *Transport) OpenChannel(ctx context.Context,
 	stor ipld.Node,
 	doNotSendCids []cid.Cid,
 	msg datatransfer.Message) error {
+	fmt.Printf("Jim go-data-transfer graphsync OpenChannel %v %v\n", dataSender, channelID)
 	if t.events == nil {
 		return datatransfer.ErrHandlerNotSet
 	}
